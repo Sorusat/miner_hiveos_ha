@@ -1,13 +1,13 @@
 {
   "domain": "hiveos_miner",
   "name": "HiveOS Miner",
-  "codeowners": [],
+  "codeowners": ["@Sorusat"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/example/hiveos_miner",
+  "documentation": "https://github.com/Sorusat/miner_hiveos_ha",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/example/hiveos_miner/issues",
+  "issue_tracker": "https://github.com/Sorusat/miner_hiveos_ha/issues",
   "requirements": [],
   "version": "0.2.0"
 }
