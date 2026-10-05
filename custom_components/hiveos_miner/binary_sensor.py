@@ -58,7 +58,7 @@ class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinaryS
             identifiers={(DOMAIN, uid)},
             name=name,
             manufacturer="HiveOS",
-            model="Antminer S19",
+            model=coordinator.model,
             configuration_url=f"http://{coordinator.host}",
         )
 

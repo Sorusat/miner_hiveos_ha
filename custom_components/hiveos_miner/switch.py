@@ -31,11 +31,12 @@ class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity)
     """A miner exposed as a switch, like a lamp in the dashboard."""
 
     _attr_should_poll = False
-    _attr_device_class = "switch"
+    _attr_has_entity_name = True
 
     def __init__(self, coordinator: HiveosMinerCoordinator, name: str, uid: str) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"{name} Майнинг"
+        self._attr_name = name
+        self._attr_translation_key = "mining"
         self._attr_unique_id = f"{uid}_mining_switch"
         self._attr_icon = "mdi:pickaxe"
 

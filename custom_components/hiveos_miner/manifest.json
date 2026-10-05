@@ -1,13 +1,13 @@
 {
   "domain": "hiveos_miner",
   "name": "HiveOS Miner",
-  "codeowners": ["@pavel"],
+  "codeowners": [],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/pavel/hiveos_miner",
+  "documentation": "https://github.com/example/hiveos_miner",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/pavel/hiveos_miner/issues",
+  "issue_tracker": "https://github.com/example/hiveos_miner/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

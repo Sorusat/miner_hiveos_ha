@@ -6,12 +6,15 @@ CONF_HOST = "host"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_NAME = "name"
+CONF_MODEL = "model"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 DEFAULT_USERNAME = "root"
 DEFAULT_PASSWORD = "root"
 DEFAULT_NAME = "Miner"
+DEFAULT_MODEL = "Antminer"
 DEFAULT_SCAN_INTERVAL = 30
+DEFAULT_PORT = 4028
 
 # CGI endpoints exposed by the HiveOS local web interface.
 # All of them require HTTP digest authentication.

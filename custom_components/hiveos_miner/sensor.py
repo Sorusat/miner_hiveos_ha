@@ -131,7 +131,7 @@ class HiveosMinerSensor(CoordinatorEntity[HiveosMinerCoordinator], SensorEntity)
             identifiers={(DOMAIN, uid)},
             name=name,
             manufacturer="HiveOS",
-            model="Antminer S19",
+            model=coordinator.model,
             sw_version=(self.coordinator.data or {}).get("miner_version"),
             configuration_url=f"http://{coordinator.host}",
         )

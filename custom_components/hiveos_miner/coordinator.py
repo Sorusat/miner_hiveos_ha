@@ -13,10 +13,15 @@ from homeassistant.util import dt as dt_util
 from .api import HiveosMinerApi, HiveosMinerError, parse_miner_status
 from .const import (
     CONF_HOST,
+    CONF_MODEL,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
     CONF_USERNAME,
+    DEFAULT_MODEL,
+    DEFAULT_PASSWORD,
+    DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_USERNAME,
     DOMAIN,
     ENDPOINT_STATUS,
     STATE_MINING,
@@ -50,10 +55,12 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
         self.host = entry.data[CONF_HOST]
+        self.model = entry.data.get(CONF_MODEL) or DEFAULT_MODEL
         self.api = HiveosMinerApi(
             self.host,
-            entry.data.get(CONF_USERNAME) or "root",
-            entry.data.get(CONF_PASSWORD) or "root",
+            entry.data.get(CONF_USERNAME) or DEFAULT_USERNAME,
+            entry.data.get(CONF_PASSWORD) or DEFAULT_PASSWORD,
+            port=entry.data.get("port") or DEFAULT_PORT,
         )
         self.available = False
         # Latched while a start/resume command is still settling, because the

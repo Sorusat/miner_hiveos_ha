@@ -1,16 +1,24 @@
 {
-  "title": "HiveOS Miner",
   "config": {
     "step": {
       "user": {
         "title": "Add a miner",
-        "description": "Enter the miner's local IP address. Credentials are the HiveOS web interface ones (root/root by default).",
+        "description": "Enter the miner's local IP address. Credentials are the HiveOS web interface ones.",
         "data": {
           "name": "Name",
           "host": "IP address",
+          "model": "Model",
           "username": "Username",
           "password": "Password",
           "scan_interval": "Poll interval, seconds"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update credentials",
+        "description": "Miner {host} rejects the current credentials. Enter the new ones.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
         }
       }
     },
@@ -19,7 +27,27 @@
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "This miner is already configured"
+      "already_configured": "This miner is already configured",
+      "reauth_successful": "Credentials updated"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Miner settings",
+        "description": "Changes are applied after a successful connection check.",
+        "data": {
+          "name": "Name",
+          "host": "IP address",
+          "model": "Model",
+          "username": "Username",
+          "password": "Password",
+          "scan_interval": "Poll interval, seconds"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the miner. Check the IP, username and password."
     }
   },
   "entity": {
@@ -34,6 +62,14 @@
       "rejected_shares": { "name": "Rejected shares" },
       "boards_alive": { "name": "Boards" },
       "pools": { "name": "Pools" }
+    },
+    "switch": {
+      "mining": { "name": "Mining" }
+    },
+    "binary_sensor": {
+      "connectivity": { "name": "Reachable" },
+      "is_mining": { "name": "Mining" },
+      "is_powered": { "name": "Powered" }
     }
   }
 }

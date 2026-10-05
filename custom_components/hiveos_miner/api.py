@@ -45,9 +45,15 @@ def _to_float(value: Any) -> float | None:
 
 
 def _kv(blob: str, key: str) -> float | None:
-    """Pull a single ``key=value`` pair out of the devs[].freq blob."""
+    """Pull a single numeric ``key=value`` pair out of the devs[].freq blob."""
     match = re.search(rf"(?:^|,){re.escape(key)}=([0-9.]+)", blob or "")
     return _to_float(match.group(1)) if match else None
+
+
+def _kvs(blob: str, key: str) -> str | None:
+    """Pull a single string ``key=value`` pair out of the devs[].freq blob."""
+    match = re.search(rf"(?:^|,){re.escape(key)}=([^,]*)", blob or "")
+    return match.group(1).strip() if match else None
 
 
 def _build_digest_auth(username: str, password: str):
@@ -64,9 +70,11 @@ class HiveosMinerApi:
         host: str,
         username: str = DEFAULT_USERNAME,
         password: str = DEFAULT_PASSWORD,
+        port: int = LOCAL_API_PORT,
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         self._host = host.rstrip("/")
+        self._port = int(port)
         self._session = session
         self._owns_session = session is None
         self._auth = _build_digest_auth(username, password)
@@ -151,7 +159,7 @@ class HiveosMinerApi:
         writer = None
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(self._host, LOCAL_API_PORT), timeout=5
+                asyncio.open_connection(self._host, self._port), timeout=5
             )
             writer.write(json.dumps({"command": "get_log"}).encode() + b"\n")
             await writer.drain()
@@ -208,6 +216,7 @@ def parse_miner_status(
     temps: list[float] = []
     power = None
     boards = 0
+    version = None
     if devs:
         blob = str(devs[0].get("freq") or "")
         temps = [
@@ -227,6 +236,7 @@ def parse_miner_status(
         if chip:
             temps.append(max(chip))
         power = _kv(blob, "total_power")
+        version = _kvs(blob, "miner_version")
         boards = len([d for d in devs if _to_float(d.get("temp"))])
 
     return {
@@ -240,6 +250,7 @@ def parse_miner_status(
         "accepted": _to_float(summary.get("accepted")),
         "rejected": _to_float(summary.get("rejected")),
         "boards_alive": boards,
+        "miner_version": version,
         "pools": [
             {"url": p.get("url"), "status": p.get("status")}
             for p in (data.get("pools") or [])
