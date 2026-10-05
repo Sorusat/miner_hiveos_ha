@@ -12,31 +12,43 @@ HiveOS Miner»: вводится имя, IP-адрес, модель, логин
 
 ## Установка
 
-Скопировать папку `custom_components/hiveos_miner` в `config/custom_components/`
+### Вариант 1: через HACS (нужен публичный репозиторий)
+
+HACS не видит приватные репозитории. Чтобы так ставить, сними галочку «Private» в настройках
+репозитория на GitHub — код это не сломает, установка пойдёт штатно. После этого:
+
+«Настройки HACS → Репозитории → Добавить» → вставить адрес репозитория → включить
+категорию «Интеграции» → «Магазин» → HiveOS Miner → Установить → Перезагрузить HA.
+Дальше обновления приходят кнопкой в HACS.
+
+### Вариант 2: git на машине Home Assistant (работает с приватным)
+
+Клонировать репозиторий и связать его симлинком — файлы не копируются, обновление
+одной командой:
+
+```bash
+cd ~/.config                                   # каталог конфигурации HA
+git clone https://github.com/Sorusat/miner_hiveos_ha.git
+mkdir -p custom_components
+ln -s ~/.config/miner_hiveos_ha/custom_components/hiveos_miner \
+       ~/.config/custom_components/hiveos_miner
+```
+
+Если HA в Docker, клон делай на хосте, а в контейнере монтируй каталог `config`.
+
+Обновление после этого:
+
+```bash
+cd ~/.config/miner_hiveos_ha && git pull
+```
+
+и перезагрузка Home Assistant. Симлинк сам подхватит изменения.
+
+### Вариант 3: просто скопировать папку
+
+Скопировать `custom_components/hiveos_miner` в `config/custom_components/`
 (в HA OS / Supervised это `/config/custom_components/`), затем перезагрузить Home Assistant.
-В HA Core на Windows/MacOS — перезапустить.
-
-### Через HACS (если репозиторий будет зарегистрирован)
-
-HACS работает и для локального форка: добавь репозиторий в «Настройки HACS → Репозитории
-→ Добавить», включи категорию «Интеграции», затем установи HiveOS Miner оттуда.
-Обновление интеграции и всех её файлов — одной кнопкой, без ручного копирования.
-
-### Через git на самой машине HA
-
-Если HA поставлен как гит-репозиторий рядом с конфигом, обновление выглядит так:
-
-```bash
-cd /config/custom_components
-git pull
-```
-
-Либо симлинком, чтобы не копировать вообще:
-
-```bash
-ln -s /config/hiveos_miner/custom_components/hiveos_miner \
-      /config/custom_components/hiveos_miner
-```
+В HA Core на Windows/macOS — перезапустить.
 
 ## Настройка
 
