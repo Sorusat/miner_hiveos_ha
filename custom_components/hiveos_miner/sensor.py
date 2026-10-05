@@ -56,10 +56,10 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     SensorEntityDescription(
-        key="uptime_minutes",
+        key="uptime_seconds",
         translation_key="uptime",
-        # Formatted as days/hours/minutes by the entity, so the dashboard shows
-        # "3 дн 5 ч 42 мин" instead of a raw minute count.
+        # HiveOS elapsed is in seconds; the entity renders it as
+        # "2 ч 6 мин 51 с" so the dashboard needs no raw number.
         icon="mdi:timer-outline",
     ),
     SensorEntityDescription(
@@ -89,27 +89,36 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
 )
 
 
-def _format_uptime(minutes: float | None) -> str | None:
-    """Render minutes as days/hours/minutes, e.g. 4662 -> '3 дн 5 ч 42 мин'."""
-    if minutes is None:
+def _format_uptime(seconds: float | None) -> str | None:
+    """Render HiveOS elapsed seconds as days/hours/minutes.
+
+    7611 s -> '2 ч 6 мин'. Days appear only from 24 h on, so a miner up for a
+    couple of hours is not padded with a leading zero-day.
+    """
+    if seconds is None:
         return None
-    total = int(minutes)
-    days, rest = divmod(total, 24 * 60)
-    hours, mins = divmod(rest, 60)
+    total = int(seconds)
+    days, rest = divmod(total, 24 * 3600)
+    hours, mins = divmod(rest, 3600)
+    secs = mins % 60
+    mins //= 60
     parts = []
     if days:
         parts.append(f"{days} дн")
     if hours or days:
         parts.append(f"{hours} ч")
     parts.append(f"{mins} мин")
+    if not days:
+        # Below a day the seconds matter when watching a miner start up.
+        parts.append(f"{secs} с")
     return " ".join(parts)
 
 
 def _sensor_value(data: dict[str, Any], key: str) -> Any:
     if key == "state":
         return data.get("state", "unknown")
-    if key == "uptime_minutes":
-        return _format_uptime(data.get("uptime_minutes"))
+    if key == "uptime_seconds":
+        return _format_uptime(data.get("uptime_seconds"))
     if key == "pools":
         return ", ".join(
             f"{p['status']}: {p['url']}" for p in data.get("pools", []) if p.get("url")

@@ -260,7 +260,9 @@ def parse_miner_status(
         "state": derive_state(_to_float(summary.get("ghs5s")), log, pending_start),
         "hashrate": _to_float(summary.get("ghs5s")),
         "hashrate_avg": _to_float(summary.get("ghsav")),
-        "uptime_minutes": _to_float(summary.get("elapsed")),
+        # HiveOS reports elapsed in SECONDS. Verified against the miner's own
+        # web UI: elapsed=7611 reads as 2h 6m 51s there, not 5 days.
+        "uptime_seconds": _to_float(summary.get("elapsed")),
         "temperatures": temps,
         "temp_max": max(temps) if temps else None,
         "power": power,

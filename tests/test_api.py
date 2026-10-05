@@ -136,17 +136,26 @@ async def main() -> int:
         check(label, got, want)
     check("derive_state is pure", derive_state(5000.0, "", False), "mining")
 
-    print("\nuptime formatting")
-    for minutes, want in [
-        (0, "0 мин"),
-        (5, "5 мин"),
-        (59, "59 мин"),
-        (60, "1 ч 0 мин"),
-        (4852, "3 дн 8 ч 52 мин"),
-        (1440, "1 дн 0 ч 0 мин"),
+    print("\nuptime formatting (HiveOS elapsed is in SECONDS)")
+    for seconds, want in [
+        (0, "0 мин 0 с"),
+        (59, "0 мин 59 с"),
+        (60, "1 мин 0 с"),
+        # The value Pavel reported: UI showed 2h 7m 50s, JSON carried 7611.
+        (7611, "2 ч 6 мин 51 с"),
+        (3600, "1 ч 0 мин 0 с"),
+        (86400, "1 дн 0 ч 0 мин"),
+        (291120, "3 дн 8 ч 52 мин"),
         (None, None),
     ]:
-        check(f"{minutes} min", format_uptime(minutes), want)
+        check(f"{seconds} s", format_uptime(seconds), want)
+
+    print("\nuptime parsed from real payload")
+    check(
+        "elapsed read as seconds",
+        parse_miner_status(FULL_STATUS)["uptime_seconds"],
+        11.0,
+    )
 
     print()
     if FAILURES:
