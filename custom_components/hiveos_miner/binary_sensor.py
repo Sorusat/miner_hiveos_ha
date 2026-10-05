@@ -40,39 +40,36 @@ async def async_setup_entry(
 
 
 class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinarySensorEntity):
-    """Reachability and mining state as on/off."""
+    """Reachability, power and pool state as on/off."""
 
     _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_entity_registry_enabled_default = True
 
     def __init__(
         self, coordinator: HiveosMinerCoordinator, name: str, uid: str, kind: str
     ) -> None:
         super().__init__(coordinator)
         self._kind = kind
+        # Name comes from the device plus the translation key, so None here is
+        # deliberate: assigning the device name makes the label meaningless.
+        self._attr_name = None
+        self._attr_translation_key = kind
         if kind == "connectivity":
-            self._attr_name = f"{name} Доступен"
             self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
             self._attr_icon = "mdi:lan-connect"
-            self._attr_entity_registry_enabled_default = True
         elif kind == "is_powered":
-            self._attr_name = f"{name} Под питанием"
             self._attr_device_class = BinarySensorDeviceClass.POWER
             self._attr_icon = "mdi:power-plug"
-            self._attr_entity_registry_enabled_default = True
         elif kind == "pools_ok":
             # Raw count, always present, usable as an automation trigger even
             # while the miner is stopped.
-            self._attr_name = f"{name} Есть живые пулы"
             self._attr_icon = "mdi:lan-connect"
-            self._attr_entity_registry_enabled_default = True
         elif kind == "pools_alive_now":
             # Count-based view, only while actually mining.
-            self._attr_name = f"{name} Пулы живы"
             self._attr_device_class = BinarySensorDeviceClass.RUNNING
             self._attr_icon = "mdi:check-network"
-            self._attr_entity_registry_enabled_default = True
         else:
-            self._attr_name = f"{name} Майнит"
             self._attr_device_class = BinarySensorDeviceClass.RUNNING
             self._attr_icon = "mdi:pickaxe"
             # Same information as the state sensor, so it stays out of the way.

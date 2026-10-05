@@ -166,7 +166,10 @@ class HiveosMinerSensor(CoordinatorEntity[HiveosMinerCoordinator], SensorEntity)
         self.entity_description = description
         self._attr_unique_id = f"{uid}_{description.key}"
         self._attr_translation_key = description.translation_key
-        self._attr_name = f"{name} {description.key}"
+        # None so HA renders "<device> <translated key>"; setting it to the
+        # device name makes the label meaningless and hides it in pickers.
+        self._attr_name = None
+        self._attr_has_entity_name = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, uid)},
             name=name,
