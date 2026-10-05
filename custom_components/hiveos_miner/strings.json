@@ -1,0 +1,39 @@
+{
+  "title": "HiveOS Miner",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a miner",
+        "description": "Enter the miner's local IP address. Credentials are the HiveOS web interface ones (root/root by default).",
+        "data": {
+          "name": "Name",
+          "host": "IP address",
+          "username": "Username",
+          "password": "Password",
+          "scan_interval": "Poll interval, seconds"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the miner. Check the IP, username and password.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This miner is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": { "name": "State" },
+      "hashrate": { "name": "Hashrate" },
+      "hashrate_avg": { "name": "Average hashrate" },
+      "temp_max": { "name": "Temperature" },
+      "power": { "name": "Power draw" },
+      "uptime": { "name": "Uptime" },
+      "accepted_shares": { "name": "Accepted shares" },
+      "rejected_shares": { "name": "Rejected shares" },
+      "boards_alive": { "name": "Boards" },
+      "pools": { "name": "Pools" }
+    }
+  }
+}

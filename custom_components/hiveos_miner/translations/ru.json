@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Добавить майнер",
+        "description": "Укажите IP-адрес майнера в локальной сети. Учётные данные — от веб-интерфейса HiveOS (по умолчанию root/root).",
+        "data": {
+          "name": "Название",
+          "host": "IP-адрес",
+          "username": "Логин",
+          "password": "Пароль",
+          "scan_interval": "Интервал опроса, секунд"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось связаться с майнером. Проверьте IP, логин и пароль.",
+      "unknown": "Непредвиденная ошибка"
+    },
+    "abort": {
+      "already_configured": "Этот майнер уже добавлен"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": { "name": "Состояние" },
+      "hashrate": { "name": "Хэшрейт" },
+      "hashrate_avg": { "name": "Средний хэшрейт" },
+      "temp_max": { "name": "Температура" },
+      "power": { "name": "Потребление" },
+      "uptime": { "name": "Время работы" },
+      "accepted_shares": { "name": "Принятые шары" },
+      "rejected_shares": { "name": "Отклонённые шары" },
+      "boards_alive": { "name": "Платы" },
+      "pools": { "name": "Пулы" }
+    }
+  }
+}
