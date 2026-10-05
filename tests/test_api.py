@@ -42,6 +42,19 @@ HiveosMinerError = api_module.HiveosMinerError
 derive_state = api_module.derive_state
 parse_miner_status = api_module.parse_miner_status
 
+# sensor.py only needs the formatting helper, not the whole HA entity stack.
+import re as _re  # noqa: E402
+
+_source = (ROOT / "custom_components" / "hiveos_miner" / "sensor.py").read_text(
+    encoding="utf-8"
+)
+_match = _re.search(
+    r"def _format_uptime\(.*?\n(?=\n\ndef )", _source, _re.S
+)
+_namespace: dict = {}
+exec(compile(_match.group(0), "sensor.py", "exec"), _namespace)
+format_uptime = _namespace["_format_uptime"]
+
 from fake_miner import FULL_STATUS, STATE, ZEROED_STATUS, FakeMiner  # noqa: E402
 
 FAILURES: list[str] = []
@@ -122,6 +135,18 @@ async def main() -> int:
         got = parse_miner_status(data, log, latch)["state"]
         check(label, got, want)
     check("derive_state is pure", derive_state(5000.0, "", False), "mining")
+
+    print("\nuptime formatting")
+    for minutes, want in [
+        (0, "0 мин"),
+        (5, "5 мин"),
+        (59, "59 мин"),
+        (60, "1 ч 0 мин"),
+        (4852, "3 дн 8 ч 52 мин"),
+        (1440, "1 дн 0 ч 0 мин"),
+        (None, None),
+    ]:
+        check(f"{minutes} min", format_uptime(minutes), want)
 
     print()
     if FAILURES:

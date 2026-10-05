@@ -1,4 +1,4 @@
-"""Switch entity: turn mining on and off."""
+"""Switch entities: mining on/off, and pause/resume."""
 
 from __future__ import annotations
 
@@ -24,11 +24,21 @@ async def async_setup_entry(
 ) -> None:
     coordinator: HiveosMinerCoordinator = hass.data[DOMAIN][entry.entry_id]
     name = entry.data.get(CONF_NAME) or "Miner"
-    async_add_entities([HiveosMinerSwitch(coordinator, name, entry.unique_id or entry.entry_id)])
+    uid = entry.unique_id or entry.entry_id
+    async_add_entities(
+        [
+            HiveosMinerSwitch(coordinator, name, uid),
+            HiveosMinerPauseSwitch(coordinator, name, uid),
+        ]
+    )
 
 
 class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity):
-    """A miner exposed as a switch, like a lamp in the dashboard."""
+    """A miner exposed as a switch, like a lamp in the dashboard.
+
+    Turning it off stops the miner; turning it on starts it, or resumes it
+    when it is only suspended.
+    """
 
     _attr_should_poll = False
     _attr_has_entity_name = True
@@ -68,3 +78,42 @@ class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity)
     async def async_turn_off(self, **kwargs) -> None:
         await self.coordinator.async_stop_mining()
         await self.coordinator.async_request_refresh()
+
+
+class HiveosMinerPauseSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity):
+    """Pause and resume a running miner.
+
+    Logic is inverted on purpose: on means suspended, off means running. That
+    keeps the automations readable, because a pause condition can simply say
+    "pause is on" without comparing against the mining state.
+    """
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: HiveosMinerCoordinator, name: str, uid: str) -> None:
+        super().__init__(coordinator)
+        self._attr_name = name
+        self._attr_translation_key = "pause"
+        self._attr_unique_id = f"{uid}_pause_switch"
+        self._attr_icon = "mdi:pause-circle-outline"
+
+    @property
+    def is_on(self) -> bool:
+        return (self.coordinator.data or {}).get("state") == STATE_SUSPENDED
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success
+
+    async def async_turn_on(self, **kwargs) -> None:
+        """Suspend a miner that is currently running."""
+        if (self.coordinator.data or {}).get("state") in (STATE_MINING, STATE_STARTING):
+            await self.coordinator.async_stop_mining()
+            await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        """Bring a suspended miner back to work."""
+        if (self.coordinator.data or {}).get("state") == STATE_SUSPENDED:
+            await self.coordinator.async_resume()
+            await self.coordinator.async_request_refresh()

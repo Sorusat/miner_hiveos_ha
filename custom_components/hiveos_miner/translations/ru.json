@@ -64,7 +64,8 @@
       "pools": { "name": "Пулы" }
     },
     "switch": {
-      "mining": { "name": "Майнинг" }
+      "mining": { "name": "Майнинг" },
+      "pause": { "name": "Пауза" }
     },
     "binary_sensor": {
       "connectivity": { "name": "Доступен" },

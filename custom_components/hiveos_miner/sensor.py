@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfPower, UnitOfTemperature, UnitOfTime
+from homeassistant.const import UnitOfPower, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -58,9 +58,9 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key="uptime_minutes",
         translation_key="uptime",
-        native_unit_of_measurement=UnitOfTime.MINUTES,
-        device_class=SensorDeviceClass.DURATION,
-        suggested_display_precision=0,
+        # Formatted as days/hours/minutes by the entity, so the dashboard shows
+        # "3 дн 5 ч 42 мин" instead of a raw minute count.
+        icon="mdi:timer-outline",
     ),
     SensorEntityDescription(
         key="accepted",
@@ -89,9 +89,27 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
 )
 
 
+def _format_uptime(minutes: float | None) -> str | None:
+    """Render minutes as days/hours/minutes, e.g. 4662 -> '3 дн 5 ч 42 мин'."""
+    if minutes is None:
+        return None
+    total = int(minutes)
+    days, rest = divmod(total, 24 * 60)
+    hours, mins = divmod(rest, 60)
+    parts = []
+    if days:
+        parts.append(f"{days} дн")
+    if hours or days:
+        parts.append(f"{hours} ч")
+    parts.append(f"{mins} мин")
+    return " ".join(parts)
+
+
 def _sensor_value(data: dict[str, Any], key: str) -> Any:
     if key == "state":
         return data.get("state", "unknown")
+    if key == "uptime_minutes":
+        return _format_uptime(data.get("uptime_minutes"))
     if key == "pools":
         return ", ".join(
             f"{p['status']}: {p['url']}" for p in data.get("pools", []) if p.get("url")

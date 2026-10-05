@@ -25,8 +25,10 @@ async def async_setup_entry(
     async_add_entities(
         [
             HiveosMinerBinarySensor(coordinator, name, uid, "connectivity"),
-            HiveosMinerBinarySensor(coordinator, name, uid, "is_mining"),
             HiveosMinerBinarySensor(coordinator, name, uid, "is_powered"),
+            # is_mining duplicates the state sensor; kept but off by default so
+            # the dashboard is not cluttered with two ways of saying the same.
+            HiveosMinerBinarySensor(coordinator, name, uid, "is_mining"),
         ]
     )
 
@@ -45,14 +47,18 @@ class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinaryS
             self._attr_name = f"{name} Доступен"
             self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
             self._attr_icon = "mdi:lan-connect"
+            self._attr_entity_registry_enabled_default = True
         elif kind == "is_powered":
             self._attr_name = f"{name} Под питанием"
             self._attr_device_class = BinarySensorDeviceClass.POWER
             self._attr_icon = "mdi:power-plug"
+            self._attr_entity_registry_enabled_default = True
         else:
             self._attr_name = f"{name} Майнит"
             self._attr_device_class = BinarySensorDeviceClass.RUNNING
             self._attr_icon = "mdi:pickaxe"
+            # Same information as the state sensor, so it stays out of the way.
+            self._attr_entity_registry_enabled_default = False
         self._attr_unique_id = f"{uid}_{kind}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, uid)},

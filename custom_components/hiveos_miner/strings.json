@@ -64,7 +64,8 @@
       "pools": { "name": "Pools" }
     },
     "switch": {
-      "mining": { "name": "Mining" }
+      "mining": { "name": "Mining" },
+      "pause": { "name": "Pause" }
     },
     "binary_sensor": {
       "connectivity": { "name": "Reachable" },
