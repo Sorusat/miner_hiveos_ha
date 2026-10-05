@@ -32,6 +32,10 @@ MINING_THRESHOLD_GHS = 1.0
 # Local bmminer TCP API, used only to tell suspended from stopped.
 LOCAL_API_PORT = 4028
 
+# Whole-request budget. A powered-off miner accepts nothing at all, so waiting
+# longer only slows the interval down.
+REQUEST_TIMEOUT = 10
+
 
 class HiveosMinerError(Exception):
     """Raised when the miner cannot be reached or refuses a command."""
@@ -57,9 +61,16 @@ def _kvs(blob: str, key: str) -> str | None:
 
 
 def _build_digest_auth(username: str, password: str):
-    """aiohttp renamed digest auth; support both spellings."""
-    factory = getattr(aiohttp, "DigestAuthMiddleware", None) or aiohttp.DigestAuth
-    return factory(login=username, password=password)
+    """Return (middleware, supports_middleware) for digest auth.
+
+    aiohttp >= 3.12 exposes DigestAuthMiddleware, which is request middleware
+    and must be handed to ClientSession(middlewares=...), not to auth=.
+    Older releases only have DigestAuth, which is a session auth object.
+    """
+    factory = getattr(aiohttp, "DigestAuthMiddleware", None)
+    if factory is not None:
+        return factory(login=username, password=password), True
+    return aiohttp.DigestAuth(login=username, password=password), False
 
 
 class HiveosMinerApi:
@@ -71,13 +82,14 @@ class HiveosMinerApi:
         username: str = DEFAULT_USERNAME,
         password: str = DEFAULT_PASSWORD,
         port: int = LOCAL_API_PORT,
-        session: aiohttp.ClientSession | None = None,
     ) -> None:
+        # A session is always created here, never borrowed: aiohttp digest auth
+        # is session middleware, so passing Home Assistant's shared session would
+        # silently drop the Authorization header and every request would 401.
         self._host = host.rstrip("/")
         self._port = int(port)
-        self._session = session
-        self._owns_session = session is None
-        self._auth = _build_digest_auth(username, password)
+        self._session: aiohttp.ClientSession | None = None
+        self._auth, self._auth_is_middleware = _build_digest_auth(username, password)
 
     @property
     def host(self) -> str:
@@ -88,15 +100,20 @@ class HiveosMinerApi:
 
     async def _ensure_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10),
-                auth=self._auth,
-            )
-            self._owns_session = True
+            if self._auth_is_middleware:
+                self._session = aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+                    middlewares=(self._auth,),
+                )
+            else:
+                self._session = aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+                    auth=self._auth,
+                )
         return self._session
 
     async def close(self) -> None:
-        if self._owns_session and self._session and not self._session.closed:
+        if self._session is not None and not self._session.closed:
             await self._session.close()
         self._session = None
 

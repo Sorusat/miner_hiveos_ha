@@ -7,7 +7,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import HiveosMinerApi, HiveosMinerError
 from .const import (
@@ -70,7 +69,6 @@ class HiveosMinerConfigFlow(ConfigFlow, domain=DOMAIN):
             data[CONF_USERNAME],
             data[CONF_PASSWORD],
             port=data.get("port") or DEFAULT_PORT,
-            session=async_get_clientsession(self.hass),
         )
         try:
             await api.async_validate()
@@ -79,6 +77,8 @@ class HiveosMinerConfigFlow(ConfigFlow, domain=DOMAIN):
         except Exception:  # noqa: BLE001 - unknown failures surface as a form error
             _LOGGER.exception("Unexpected error validating %s", data[CONF_HOST])
             return "unknown"
+        finally:
+            await api.close()
         return None
 
     async def async_step_user(
