@@ -86,6 +86,19 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         icon="mdi:lan",
         entity_registry_enabled_default=False,
     ),
+    SensorEntityDescription(
+        key="pools_alive",
+        translation_key="pools_alive",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:lan-connect",
+    ),
+    SensorEntityDescription(
+        key="pools_total",
+        translation_key="pools_total",
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:lan-pending",
+        entity_registry_enabled_default=False,
+    ),
 )
 
 

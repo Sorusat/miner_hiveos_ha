@@ -60,6 +60,16 @@ def _kvs(blob: str, key: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def _is_alive(status: str | None) -> bool:
+    """Treat any pool as usable unless it is explicitly marked Dead.
+
+    HiveOS reports Alive/Dead, but a pool that has never been reached also
+    shows up without a status. Being strict here would raise false alarms,
+    so anything that is not explicitly dead counts as alive.
+    """
+    return (status or "").strip().lower() != "dead"
+
+
 def _build_digest_auth(username: str, password: str):
     """Return (middleware, supports_middleware) for digest auth.
 
@@ -234,6 +244,11 @@ def parse_miner_status(
     power = None
     boards = 0
     version = None
+    pools = [
+        {"url": p.get("url"), "status": p.get("status")}
+        for p in (data.get("pools") or [])
+        if p.get("url") not in ("*", "**")
+    ]
     if devs:
         blob = str(devs[0].get("freq") or "")
         temps = [
@@ -270,9 +285,9 @@ def parse_miner_status(
         "rejected": _to_float(summary.get("rejected")),
         "boards_alive": boards,
         "miner_version": version,
-        "pools": [
-            {"url": p.get("url"), "status": p.get("status")}
-            for p in (data.get("pools") or [])
-            if p.get("url") not in ("*", "**")
-        ],
+        "pools": pools,
+        # Placeholder pools come back as "*" and "**" and are not real
+        # endpoints, so they must not inflate the totals.
+        "pools_total": len(pools),
+        "pools_alive": sum(1 for p in pools if _is_alive(p["status"])),
     }

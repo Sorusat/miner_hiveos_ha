@@ -41,6 +41,7 @@ HiveosMinerApi = api_module.HiveosMinerApi
 HiveosMinerError = api_module.HiveosMinerError
 derive_state = api_module.derive_state
 parse_miner_status = api_module.parse_miner_status
+_is_alive = api_module._is_alive
 
 # sensor.py only needs the formatting helper, not the whole HA entity stack.
 import re as _re  # noqa: E402
@@ -135,6 +136,51 @@ async def main() -> int:
         got = parse_miner_status(data, log, latch)["state"]
         check(label, got, want)
     check("derive_state is pure", derive_state(5000.0, "", False), "mining")
+
+    print("\npool counting")
+    for status, want in [
+        ("Alive", True),
+        ("Dead", False),
+        ("dead", False),
+        ("", True),
+        (None, True),
+    ]:
+        check(f"_is_alive({status!r})", _is_alive(status), want)
+
+    payload = {
+        "summary": {"ghs5s": "87257.24", "elapsed": "7611"},
+        # Placeholder entries the miner reports for internal slots.
+        "pools": [
+            {"url": "stratum+tcp://binance:443", "status": "Alive"},
+            {"url": "stratum+tcp://trustpool:3333", "status": "Dead"},
+            {"url": "*", "status": "Alive"},
+            {"url": "**", "status": "Alive"},
+        ],
+        "devs": [],
+    }
+    parsed = parse_miner_status(payload, "")
+    check("placeholders excluded from total", parsed["pools_total"], 2)
+    check("alive count", parsed["pools_alive"], 1)
+
+    all_dead = {
+        "summary": {"ghs5s": "0", "elapsed": "0"},
+        "pools": [
+            {"url": "stratum+tcp://trustpool:3333", "status": "Dead"},
+            {"url": "*", "status": "Dead"},
+        ],
+        "devs": [],
+    }
+    dead_parsed = parse_miner_status(all_dead, "Starting")
+    check("all pools dead -> zero alive", dead_parsed["pools_alive"], 0)
+    check("total still counted", dead_parsed["pools_total"], 1)
+    check("still booting, not stopped", dead_parsed["state"], "starting")
+
+    no_pools = {"summary": {"ghs5s": "0", "elapsed": "0"}, "pools": [], "devs": []}
+    check(
+        "stopped miner reports no pools",
+        parse_miner_status(no_pools)["pools_alive"],
+        0,
+    )
 
     print("\nuptime formatting (HiveOS elapsed is in SECONDS)")
     for seconds, want in [

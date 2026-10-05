@@ -12,7 +12,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_NAME, DOMAIN, STATE_MINING
+from .const import CONF_NAME, DOMAIN, STATE_MINING, STATE_STARTING
 from .coordinator import HiveosMinerCoordinator
 
 
@@ -22,15 +22,21 @@ async def async_setup_entry(
     coordinator: HiveosMinerCoordinator = hass.data[DOMAIN][entry.entry_id]
     name = entry.data.get(CONF_NAME) or "Miner"
     uid = entry.unique_id or entry.entry_id
-    async_add_entities(
-        [
-            HiveosMinerBinarySensor(coordinator, name, uid, "connectivity"),
-            HiveosMinerBinarySensor(coordinator, name, uid, "is_powered"),
-            # is_mining duplicates the state sensor; kept but off by default so
-            # the dashboard is not cluttered with two ways of saying the same.
-            HiveosMinerBinarySensor(coordinator, name, uid, "is_mining"),
-        ]
-    )
+    entities = [
+        HiveosMinerBinarySensor(coordinator, name, uid, "connectivity"),
+        HiveosMinerBinarySensor(coordinator, name, uid, "is_powered"),
+        HiveosMinerBinarySensor(coordinator, name, uid, "pools_ok"),
+        # is_mining duplicates the state sensor; kept but off by default so
+        # the dashboard is not cluttered with two ways of saying the same.
+        HiveosMinerBinarySensor(coordinator, name, uid, "is_mining"),
+    ]
+    # A miner that is stopped reports no pools at all. Reporting "no pool is
+    # alive" then would be noise, and would fire the all-pools-down alert.
+    if (coordinator.data or {}).get("state") in (STATE_MINING, STATE_STARTING):
+        entities.append(
+            HiveosMinerBinarySensor(coordinator, name, uid, "pools_alive_now")
+        )
+    async_add_entities(entities)
 
 
 class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinarySensorEntity):
@@ -52,6 +58,18 @@ class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinaryS
             self._attr_name = f"{name} Под питанием"
             self._attr_device_class = BinarySensorDeviceClass.POWER
             self._attr_icon = "mdi:power-plug"
+            self._attr_entity_registry_enabled_default = True
+        elif kind == "pools_ok":
+            # Raw count, always present, usable as an automation trigger even
+            # while the miner is stopped.
+            self._attr_name = f"{name} Есть живые пулы"
+            self._attr_icon = "mdi:lan-connect"
+            self._attr_entity_registry_enabled_default = True
+        elif kind == "pools_alive_now":
+            # Count-based view, only while actually mining.
+            self._attr_name = f"{name} Пулы живы"
+            self._attr_device_class = BinarySensorDeviceClass.RUNNING
+            self._attr_icon = "mdi:check-network"
             self._attr_entity_registry_enabled_default = True
         else:
             self._attr_name = f"{name} Майнит"
@@ -76,12 +94,19 @@ class HiveosMinerBinarySensor(CoordinatorEntity[HiveosMinerCoordinator], BinaryS
             # A powered-off miner answers nothing, so its absence from the
             # network is the only proof it is off.
             return self.coordinator.last_update_success
-        return (self.coordinator.data or {}).get("state") == STATE_MINING
+        data = self.coordinator.data or {}
+        if self._kind == "pools_ok":
+            return (data.get("pools_alive") or 0) > 0
+        if self._kind == "pools_alive_now":
+            # False when every configured pool reports Dead: the case worth
+            # alerting on, because the miner is hashing into nothing.
+            return (data.get("pools_alive") or 0) > 0
+        return data.get("state") == STATE_MINING
 
     @property
     def available(self) -> bool:
-        # Connectivity and power must survive a failed poll, or the reason for
-        # the outage disappears from the dashboard.
-        if self._kind in ("connectivity", "is_powered"):
+        # Connectivity, power and the pool count must survive a failed poll, or
+        # the reason for the outage disappears from the dashboard.
+        if self._kind in ("connectivity", "is_powered", "pools_ok", "pools_alive_now"):
             return True
         return self.coordinator.last_update_success

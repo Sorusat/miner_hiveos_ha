@@ -61,7 +61,9 @@
       "accepted_shares": { "name": "Принятые шары" },
       "rejected_shares": { "name": "Отклонённые шары" },
       "boards_alive": { "name": "Платы" },
-      "pools": { "name": "Пулы" }
+      "pools": { "name": "Пулы" },
+      "pools_alive": { "name": "Живых пулов" },
+      "pools_total": { "name": "Всего пулов" }
     },
     "switch": {
       "mining": { "name": "Майнинг" },
@@ -70,7 +72,9 @@
     "binary_sensor": {
       "connectivity": { "name": "Доступен" },
       "is_mining": { "name": "Майнит" },
-      "is_powered": { "name": "Под питанием" }
+      "is_powered": { "name": "Под питанием" },
+      "pools_ok": { "name": "Есть живые пулы" },
+      "pools_alive_now": { "name": "Пулы живы" }
     }
   }
 }
