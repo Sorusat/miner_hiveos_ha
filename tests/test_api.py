@@ -92,7 +92,7 @@ async def main() -> int:
         api = HiveosMinerApi(host, "root", "root")
         await api.async_start()
         check("payload zeroed after start", await api.async_get("/cgi-bin/get_miner_status.cgi"), ZEROED_STATUS)
-        check("state zeroed + no latch", parse_miner_status(ZEROED_STATUS, "")["state"], "stopped")
+        check("responding zeroed miner + no latch", parse_miner_status(ZEROED_STATUS, "")["state"], "suspended")
         check("state zeroed + latch", parse_miner_status(ZEROED_STATUS, "", True)["state"], "starting")
 
         await api.async_stop()
@@ -137,7 +137,7 @@ async def main() -> int:
             "mining",
         ),
         ("mining", FULL_STATUS, "", False, "mining"),
-        ("powered off", ZEROED_STATUS, "", False, "stopped"),
+        ("responding but not hashing", ZEROED_STATUS, "", False, "suspended"),
     ]:
         got = parse_miner_status(data, log, latch)["state"]
         check(label, got, want)

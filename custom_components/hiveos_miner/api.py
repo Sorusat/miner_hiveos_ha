@@ -24,7 +24,6 @@ from .const import (
     ENDPOINT_STOP,
     STATE_MINING,
     STATE_STARTING,
-    STATE_STOPPED,
     STATE_SUSPENDED,
 )
 
@@ -231,15 +230,14 @@ class HiveosMinerApi:
 
 
 def derive_state(
-    ghs5s: float | None, log: str = "", pending_start: bool = False
+    ghs5s: float | None, log: str = "", pending_start: bool = False,
+    pools_disabled: bool = False,
 ) -> str:
     """Resolve one of the miner states.
 
-    ``pending_start`` covers the window right after start/resume, when the
-    status JSON is entirely zeroed (elapsed, hashrate, devs and pools all
-    empty) and therefore identical to a powered-off miner. Only the local log
-    distinguishes those, and it can stay silent for the first few polls, so
-    the issued command is tracked as a fallback.
+    This function handles a responding miner. Physical power loss/network
+    failure is handled by the coordinator, not inferred from zero hashrate.
+    A resume command temporarily holds starting while the status is zeroed.
     """
     # The current status is authoritative. The log may contain an older
     # SUSPENDED/Starting line in its tail, while a positive hashrate proves
@@ -248,11 +246,13 @@ def derive_state(
         return STATE_MINING
     if pending_start:
         return STATE_STARTING
+    if pools_disabled:
+        return STATE_SUSPENDED
     if log:
         events = re.findall(r"SUSPENDED|Starting", log[-2000:], re.IGNORECASE)
         if events:
             return STATE_SUSPENDED if events[-1].lower() == "suspended" else STATE_STARTING
-    return STATE_STARTING if pending_start else STATE_STOPPED
+    return STATE_SUSPENDED
 
 
 def parse_miner_status(
@@ -310,7 +310,13 @@ def parse_miner_status(
             if temperature is not None and temperature > 0:
                 temps.append(temperature)
 
-    state = derive_state(_to_float(summary.get("ghs5s")), log, pending_start)
+    pools_disabled = bool(pools) and all(
+        isinstance(p["status"], str) and p["status"].strip().lower() == "disabled"
+        for p in pools
+    )
+    state = derive_state(
+        _to_float(summary.get("ghs5s")), log, pending_start, pools_disabled
+    )
     pools_alive = (
         sum(1 for p in pools if _is_alive(p["status"]))
         if state == STATE_MINING

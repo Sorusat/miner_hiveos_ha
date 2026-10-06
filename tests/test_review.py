@@ -106,6 +106,25 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(api.derive_state(0, "Starting\nSUSPENDED"), "suspended")
         self.assertEqual(api.derive_state(0.01, "SUSPENDED"), "mining")
 
+    def test_disabled_pools_from_paused_miner(self):
+        payload = {
+            "summary": {"elapsed": "1", "ghs5s": "0.00", "ghsav": "0.00"},
+            "pools": [
+                {"url": f"stratum+tcp://pool{number}.example:3333", "status": "Disabled"}
+                for number in range(3)
+            ] + [{"url": "*", "status": "Disabled"}, {"url": "**", "status": "Disabled"}],
+            "devs": [],
+        }
+        for log in ("", "old Starting event"):
+            with self.subTest(log=log):
+                data = api.parse_miner_status(payload, log)
+                self.assertEqual(data["state"], "suspended")
+                self.assertEqual(data["pools_alive"], 0)
+                self.assertEqual(data["pools_total"], 3)
+        self.assertEqual(api.parse_miner_status(payload, "", True)["state"], "starting")
+        payload["summary"]["ghs5s"] = "0.01"
+        self.assertEqual(api.parse_miner_status(payload)["state"], "mining")
+
 
 class ControlTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -137,6 +156,15 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         await self.c.async_set_mining(True)
         self.c.api.async_start.assert_not_awaited()
         self.c.api.async_resume.assert_not_awaited()
+
+    async def test_pause_detected_after_reload_without_local_memory(self):
+        self.c.api.async_get.return_value = {
+            "summary": {"ghs5s": "0", "elapsed": "1"},
+            "pools": [{"url": "stratum+tcp://pool.example:3333", "status": "Disabled"}],
+            "devs": [],
+        }
+        self.assertFalse(self.c._paused_by_us)
+        self.assertEqual((await self.c._async_update_data())["state"], "suspended")
 
     async def test_offline_and_auth_are_distinct(self):
         self.c.api.async_get.side_effect = api.HiveosMinerConnectionError("offline")

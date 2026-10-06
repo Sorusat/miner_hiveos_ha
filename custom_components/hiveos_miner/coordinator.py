@@ -34,6 +34,7 @@ from .const import (
     ENDPOINT_STATUS,
     STATE_MINING,
     STATE_STARTING,
+    STATE_STOPPED,
     STATE_SUSPENDED,
 )
 
@@ -118,7 +119,9 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
             self.available = False
             self._paused_by_us = False
             self._clear_pending_start()
-            return parse_miner_status({"summary": {}, "devs": [], "pools": []})
+            data = parse_miner_status({"summary": {}, "devs": [], "pools": []})
+            data["state"] = STATE_STOPPED
+            return data
         except HiveosMinerError as err:
             self._clear_pending_start()
             raise UpdateFailed(str(err)) from err
