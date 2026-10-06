@@ -35,15 +35,11 @@ class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity)
     """
 
     _attr_should_poll = False
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
 
     def __init__(self, coordinator: HiveosMinerCoordinator, name: str, uid: str) -> None:
         super().__init__(coordinator)
-        # With has_entity_name set, _attr_name must stay None so Home Assistant
-        # composes "<device name> <translated key>" itself. Assigning the device
-        # name here makes the label meaningless and hides it in pickers.
-        self._attr_name = None
-        self._attr_translation_key = "mining"
+        self._attr_name = "Майнинг"
         self._attr_unique_id = f"{uid}_mining_switch"
         self._attr_icon = "mdi:pickaxe"
 

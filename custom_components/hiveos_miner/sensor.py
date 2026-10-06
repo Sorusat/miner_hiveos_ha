@@ -62,6 +62,15 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+ENTITY_NAMES = {
+    "state": "Состояние",
+    "hashrate": "Хэшрейт",
+    "temp_max": "Температура",
+    "power": "Потребление",
+    "uptime_seconds": "Время работы",
+    "pools_alive": "Живые пулы",
+}
+
 
 def _format_uptime(seconds: float | None) -> str | None:
     """Render HiveOS elapsed seconds as days/hours/minutes.
@@ -122,11 +131,10 @@ class HiveosMinerSensor(CoordinatorEntity[HiveosMinerCoordinator], SensorEntity)
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{uid}_{description.key}"
-        self._attr_translation_key = description.translation_key
-        # None so HA renders "<device> <translated key>"; setting it to the
-        # device name makes the label meaningless and hides it in pickers.
-        self._attr_name = None
-        self._attr_has_entity_name = True
+        # Explicit names avoid older HA/entity-registry combinations falling
+        # back to the device name for every card.
+        self._attr_name = ENTITY_NAMES[description.key]
+        self._attr_has_entity_name = False
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, uid)},
             name=name,
