@@ -83,9 +83,8 @@ cd ~/.config/miner_hiveos_ha && git pull
 
 ```
 GET /cgi-bin/get_miner_status.cgi   статус (JSON)
-GET /cgi-bin/start_miner.cgi        запуск
 GET /cgi-bin/stop_miner.cgi         остановка
-GET /cgi-bin/resume_miner.cgi       продолжить с паузы
+GET /cgi-bin/resume_miner.cgi       запустить майнинг или продолжить с паузы
 TCP  :4028 {"command":"get_log"}    лог bmminer (только чтение)
 ```
 

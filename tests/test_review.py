@@ -120,7 +120,8 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
     async def test_concurrent_start_only_once(self):
         self.c.data = {"state": "stopped"}
         await asyncio.gather(self.c.async_set_mining(True), self.c.async_set_mining(True))
-        self.c.api.async_start.assert_awaited_once()
+        self.c.api.async_resume.assert_awaited_once()
+        self.c.api.async_start.assert_not_awaited()
         self.assertEqual(self.c.data["state"], "starting")
 
     async def test_pause_without_log_then_resume(self):
@@ -135,6 +136,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.c.data = {"state": "mining"}
         await self.c.async_set_mining(True)
         self.c.api.async_start.assert_not_awaited()
+        self.c.api.async_resume.assert_not_awaited()
 
     async def test_offline_and_auth_are_distinct(self):
         self.c.api.async_get.side_effect = api.HiveosMinerConnectionError("offline")

@@ -154,10 +154,8 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
         _LOGGER.info("%s: resume issued, holding state 'starting'", self.host)
 
     async def async_start_mining(self) -> None:
-        await self.api.async_start()
-        self._paused_by_us = False
-        self._pending_start = dt_util.utcnow()
-        _LOGGER.info("%s: start issued, holding state 'starting'", self.host)
+        """Start hashing through the firmware's supported resume endpoint."""
+        await self.async_resume()
 
     async def async_stop_mining(self) -> None:
         await self.api.async_stop()
@@ -173,10 +171,7 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
                 if enabled:
                     if state in (STATE_MINING, STATE_STARTING) or self.pending_start:
                         return
-                    if state == STATE_SUSPENDED:
-                        await self.async_resume()
-                    else:
-                        await self.async_start_mining()
+                    await self.async_start_mining()
                 else:
                     if state not in (STATE_MINING, STATE_STARTING):
                         return
