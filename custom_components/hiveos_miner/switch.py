@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -42,6 +43,13 @@ class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity)
         self._attr_name = "Майнинг"
         self._attr_unique_id = f"{uid}_mining_switch"
         self._attr_icon = "mdi:pickaxe"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, uid)},
+            name=name,
+            manufacturer="HiveOS",
+            model=coordinator.model,
+            configuration_url=f"http://{coordinator.host}",
+        )
 
     @property
     def is_on(self) -> bool:

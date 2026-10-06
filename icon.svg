@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16233b"/>
+      <stop offset="1" stop-color="#0b1222"/>
+    </linearGradient>
+    <linearGradient id="chip" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffbd3d"/>
+      <stop offset="1" stop-color="#f47b20"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#bg)"/>
+  <g fill="none" stroke="#68d7e8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M38 83h30M38 128h30M38 173h30M188 83h30M188 128h30M188 173h30" stroke-width="10"/>
+    <path d="M83 38v30M128 38v30M173 38v30M83 188v30M128 188v30M173 188v30" stroke-width="10"/>
+    <path d="M48 55c18-18 39-27 64-30M208 55c-18-18-39-27-64-30M48 201c18 18 39 27 64 30M208 201c-18 18-39 27-64 30" stroke-width="5" opacity=".75"/>
+  </g>
+  <rect x="68" y="68" width="120" height="120" rx="22" fill="url(#chip)" stroke="#ffe5a1" stroke-width="6"/>
+  <rect x="92" y="92" width="72" height="72" rx="12" fill="#17243b"/>
+  <path d="M108 137l13-22 11 15 13-25" fill="none" stroke="#68d7e8" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="190" cy="66" r="16" fill="#53d769" stroke="#0b1222" stroke-width="6"/>
+  <path d="M183 66l5 5 10-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
