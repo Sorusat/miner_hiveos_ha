@@ -17,7 +17,7 @@ from .const import (
     CONF_USERNAME,
     DEFAULT_PORT,
 )
-from .coordinator import HiveosMinerCoordinator
+from .config_flow import SCAN_INTERVAL_SCHEMA, _normalise
 
 
 class HiveosMinerOptionsFlow(OptionsFlow):
@@ -28,13 +28,25 @@ class HiveosMinerOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         if user_input is not None:
             entry = self.hass.config_entries.async_get_entry(self.handler)
-            data = {**entry.data, **user_input}
-            host = str(data[CONF_HOST]).strip().rstrip("/")
-            if host.startswith(("http://", "https://")):
-                host = host.split("://", 1)[1].rstrip("/")
-            if host.count(":") == 1:
-                host = host.split(":", 1)[0]
-            data[CONF_HOST] = host
+            try:
+                data = _normalise({**entry.data, **user_input})
+            except vol.Invalid:
+                return self.async_show_form(
+                    step_id="init", data_schema=self._schema(entry.data),
+                    errors={CONF_HOST: "invalid_host"},
+                )
+            host = data[CONF_HOST]
+            # Keep the entry identity stable, but prevent two entries from
+            # controlling the same endpoint after an address change.
+            if any(
+                other.entry_id != entry.entry_id
+                and other.data.get(CONF_HOST) == host
+                for other in self.hass.config_entries.async_entries(entry.domain)
+            ):
+                return self.async_show_form(
+                    step_id="init", data_schema=self._schema(data),
+                    errors={"base": "already_configured"},
+                )
 
             # Refuse to save settings that do not work, so a typo cannot take
             # a working miner off the dashboard.
@@ -58,9 +70,8 @@ class HiveosMinerOptionsFlow(OptionsFlow):
             self.hass.config_entries.async_update_entry(
                 entry,
                 data=data,
-                options={"scan_interval": data[CONF_SCAN_INTERVAL]},
+                title=data[CONF_NAME],
             )
-            await self.hass.config_entries.async_reload(entry.entry_id)
             return self.async_create_entry(title="", data={})
 
         entry = self.hass.config_entries.async_get_entry(self.handler)
@@ -76,6 +87,6 @@ class HiveosMinerOptionsFlow(OptionsFlow):
                 vol.Optional(CONF_PASSWORD, default=data.get(CONF_PASSWORD, "root")): str,
                 vol.Optional(
                     CONF_SCAN_INTERVAL, default=int(data.get(CONF_SCAN_INTERVAL, 30))
-                ): int,
+                ): SCAN_INTERVAL_SCHEMA,
             }
         )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -70,6 +71,8 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
             port=entry.data.get("port") or DEFAULT_PORT,
         )
         self.available = False
+        self._command_lock = asyncio.Lock()
+        self._paused_by_us = False
         # Latched while a start/resume command is still settling, because the
         # status payload during that window is indistinguishable from power-off.
         self._pending_start: dt_util.datetime | None = None
@@ -78,7 +81,7 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=f"{DOMAIN} {self.host}",
             update_interval=timedelta(
-                seconds=entry.data.get(CONF_SCAN_INTERVAL) or DEFAULT_SCAN_INTERVAL
+                seconds=max(5, min(3600, entry.data.get(CONF_SCAN_INTERVAL) or DEFAULT_SCAN_INTERVAL))
             ),
         )
 
@@ -113,6 +116,7 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
             # "Выключен" and lets the start switch remain available. Numeric
             # entities get None values and therefore display as unavailable.
             self.available = False
+            self._paused_by_us = False
             self._clear_pending_start()
             return parse_miner_status({"summary": {}, "devs": [], "pools": []})
         except HiveosMinerError as err:
@@ -121,7 +125,14 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
 
         log = await self.api.async_log_tail()
         self.available = True
-        data = parse_miner_status(raw, log, self.pending_start)
+        try:
+            data = parse_miner_status(
+                raw, log or ("SUSPENDED" if self._paused_by_us else ""), self.pending_start
+            )
+        except HiveosMinerError as err:
+            raise UpdateFailed(str(err)) from err
+        if data["state"] == STATE_MINING:
+            self._paused_by_us = False
         if data["state"] in (STATE_MINING, STATE_SUSPENDED):
             self._clear_pending_start()
         elif data["state"] == STATE_STARTING and not self._pending_start:
@@ -138,15 +149,39 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
 
     async def async_resume(self) -> None:
         await self.api.async_resume()
+        self._paused_by_us = False
         self._pending_start = dt_util.utcnow()
         _LOGGER.info("%s: resume issued, holding state 'starting'", self.host)
 
     async def async_start_mining(self) -> None:
         await self.api.async_start()
+        self._paused_by_us = False
         self._pending_start = dt_util.utcnow()
         _LOGGER.info("%s: start issued, holding state 'starting'", self.host)
 
     async def async_stop_mining(self) -> None:
         await self.api.async_stop()
         self._pending_start = None
+        self._paused_by_us = True
         _LOGGER.info("%s: stop issued", self.host)
+
+    async def async_set_mining(self, enabled: bool) -> None:
+        """Serialize commands and recheck state after the previous refresh."""
+        async with self._command_lock:
+            state = (self.data or {}).get("state")
+            try:
+                if enabled:
+                    if state in (STATE_MINING, STATE_STARTING) or self.pending_start:
+                        return
+                    if state == STATE_SUSPENDED:
+                        await self.async_resume()
+                    else:
+                        await self.async_start_mining()
+                else:
+                    if state not in (STATE_MINING, STATE_STARTING):
+                        return
+                    await self.async_stop_mining()
+            except HiveosMinerAuthError as err:
+                self.entry.async_start_reauth(self.hass)
+                raise ConfigEntryAuthFailed(str(err)) from err
+            await self.async_request_refresh()

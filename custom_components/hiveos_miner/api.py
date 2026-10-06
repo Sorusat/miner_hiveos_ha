@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 import aiohttp
 
@@ -51,7 +53,8 @@ class HiveosMinerConnectionError(HiveosMinerError):
 
 def _to_float(value: Any) -> float | None:
     try:
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else None
     except (TypeError, ValueError):
         return None
 
@@ -69,13 +72,8 @@ def _kvs(blob: str, key: str) -> str | None:
 
 
 def _is_alive(status: str | None) -> bool:
-    """Treat any pool as usable unless it is explicitly marked Dead.
-
-    HiveOS reports Alive/Dead, but a pool that has never been reached also
-    shows up without a status. Being strict here would raise false alarms,
-    so anything that is not explicitly dead counts as alive.
-    """
-    return (status or "").strip().lower() != "dead"
+    """Count only pools explicitly confirmed Alive by the miner."""
+    return isinstance(status, str) and status.strip().lower() == "alive"
 
 
 def _build_digest_auth(username: str, password: str):
@@ -83,12 +81,12 @@ def _build_digest_auth(username: str, password: str):
 
     aiohttp >= 3.12 exposes DigestAuthMiddleware, which is request middleware
     and must be handed to ClientSession(middlewares=...), not to auth=.
-    Older releases only have DigestAuth, which is a session auth object.
+    Older aiohttp releases do not provide a built-in digest client.
     """
     factory = getattr(aiohttp, "DigestAuthMiddleware", None)
     if factory is not None:
         return factory(login=username, password=password), True
-    return aiohttp.DigestAuth(login=username, password=password), False
+    raise HiveosMinerError("Digest authentication requires aiohttp >= 3.12")
 
 
 class HiveosMinerApi:
@@ -154,8 +152,10 @@ class HiveosMinerApi:
             raise HiveosMinerConnectionError(
                 f"{self._host}: timeout on {endpoint}"
             ) from err
-        except aiohttp.ClientError as err:
+        except aiohttp.ClientConnectionError as err:
             raise HiveosMinerConnectionError(f"{self._host}: {err}") from err
+        except aiohttp.ClientError as err:
+            raise HiveosMinerError(f"{self._host}: {err}") from err
 
         try:
             return json.loads(body)
@@ -181,8 +181,10 @@ class HiveosMinerApi:
             raise HiveosMinerConnectionError(
                 f"{self._host}: timeout on {endpoint}"
             ) from err
-        except aiohttp.ClientError as err:
+        except aiohttp.ClientConnectionError as err:
             raise HiveosMinerConnectionError(f"{self._host}: {err}") from err
+        except aiohttp.ClientError as err:
+            raise HiveosMinerError(f"{self._host}: {err}") from err
 
     async def async_start(self) -> None:
         await self.async_command(ENDPOINT_START)
@@ -202,7 +204,7 @@ class HiveosMinerApi:
         writer = None
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(self._host, self._port), timeout=5
+                asyncio.open_connection(urlsplit(self._url("/")).hostname, self._port), timeout=5
             )
             writer.write(json.dumps({"command": "get_log"}).encode() + b"\n")
             await writer.drain()
@@ -217,11 +219,15 @@ class HiveosMinerApi:
             payload = json.loads(text)
         except ValueError:
             return text
+        if not isinstance(payload, dict):
+            return ""
         return str(payload.get("log") or payload.get("message") or "")
 
     async def async_validate(self) -> bool:
         data = await self.async_get(ENDPOINT_STATUS)
-        return isinstance(data, dict) and "summary" in data
+        if not isinstance(data, dict) or not isinstance(data.get("summary"), dict):
+            raise HiveosMinerError("Invalid miner status: summary must be an object")
+        return True
 
 
 def derive_state(
@@ -240,12 +246,12 @@ def derive_state(
     # that the miner is working now.
     if ghs5s is not None and ghs5s > MINING_THRESHOLD_GHS:
         return STATE_MINING
+    if pending_start:
+        return STATE_STARTING
     if log:
-        tail = log[-2000:]
-        if "SUSPENDED" in tail:
-            return STATE_SUSPENDED
-        if "Starting" in tail:
-            return STATE_STARTING
+        events = re.findall(r"SUSPENDED|Starting", log[-2000:], re.IGNORECASE)
+        if events:
+            return STATE_SUSPENDED if events[-1].lower() == "suspended" else STATE_STARTING
     return STATE_STARTING if pending_start else STATE_STOPPED
 
 
@@ -256,8 +262,16 @@ def parse_miner_status(
 
     Deliberately free of Home Assistant imports so it stays unit testable.
     """
-    summary = data.get("summary") or {}
+    if not isinstance(data, dict) or not isinstance(data.get("summary"), dict):
+        raise HiveosMinerError("Invalid miner status: summary must be an object")
+    summary = data["summary"]
     devs = data.get("devs") or []
+    if not isinstance(devs, list):
+        devs = []
+    devs = [d for d in devs if isinstance(d, dict)]
+    raw_pools = data.get("pools") or []
+    if not isinstance(raw_pools, list):
+        raw_pools = []
 
     temps: list[float] = []
     power = None
@@ -265,8 +279,8 @@ def parse_miner_status(
     version = None
     pools = [
         {"url": p.get("url"), "status": p.get("status")}
-        for p in (data.get("pools") or [])
-        if p.get("url") not in ("*", "**")
+        for p in raw_pools
+        if isinstance(p, dict) and p.get("url") and p.get("url") not in ("*", "**")
     ]
     if devs:
         blob = str(devs[0].get("freq") or "")
@@ -289,9 +303,22 @@ def parse_miner_status(
         power = _kv(blob, "total_power")
         version = _kvs(blob, "miner_version")
         boards = len([d for d in devs if _to_float(d.get("temp"))])
+        # Some firmware places temperatures in each board instead of the
+        # first board's frequency blob. Include all boards in the maximum.
+        for dev in devs:
+            temperature = _to_float(dev.get("temp"))
+            if temperature is not None and temperature > 0:
+                temps.append(temperature)
+
+    state = derive_state(_to_float(summary.get("ghs5s")), log, pending_start)
+    pools_alive = (
+        sum(1 for p in pools if _is_alive(p["status"]))
+        if state == STATE_MINING
+        else 0
+    )
 
     return {
-        "state": derive_state(_to_float(summary.get("ghs5s")), log, pending_start),
+        "state": state,
         "hashrate": _to_float(summary.get("ghs5s")),
         "hashrate_avg": _to_float(summary.get("ghsav")),
         # HiveOS reports elapsed in SECONDS. Verified against the miner's own
@@ -308,5 +335,7 @@ def parse_miner_status(
         # Placeholder pools come back as "*" and "**" and are not real
         # endpoints, so they must not inflate the totals.
         "pools_total": len(pools),
-        "pools_alive": sum(1 for p in pools if _is_alive(p["status"])),
+        # Configured pools can remain in the JSON while the miner is stopped
+        # or suspended. They are only "live" while hashing is actually active.
+        "pools_alive": pools_alive,
     }

@@ -148,8 +148,8 @@ async def main() -> int:
         ("Alive", True),
         ("Dead", False),
         ("dead", False),
-        ("", True),
-        (None, True),
+        ("", False),
+        (None, False),
     ]:
         check(f"_is_alive({status!r})", _is_alive(status), want)
 
@@ -185,6 +185,17 @@ async def main() -> int:
     check(
         "stopped miner reports no pools",
         parse_miner_status(no_pools)["pools_alive"],
+        0,
+    )
+
+    stopped_with_configured_pools = {
+        "summary": {"ghs5s": "0", "elapsed": "0"},
+        "pools": [{"url": "stratum+tcp://pool:3333", "status": "Alive"}],
+        "devs": [],
+    }
+    check(
+        "stopped miner ignores configured live pools",
+        parse_miner_status(stopped_with_configured_pools)["pools_alive"],
         0,
     )
 

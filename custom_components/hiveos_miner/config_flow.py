@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
@@ -27,6 +28,31 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
+def normalise_host(value: str) -> str:
+    """Keep an optional HTTP port; reject credentials and URL paths."""
+    value = value.strip().rstrip("/")
+    try:
+        address = urlsplit(value if "://" in value else f"http://{value}")
+        if (
+            address.scheme != "http" or not address.hostname
+            or address.username is not None or address.password is not None
+            or address.path or address.query or address.fragment
+        ):
+            raise ValueError("Enter an IP/hostname or an HTTP URL without a path")
+        port = address.port
+        host = address.hostname.lower()
+        if any(character.isspace() for character in host):
+            raise ValueError("Address must not contain whitespace")
+        if ":" in host:
+            host = f"[{host}]"
+        return f"{host}:{port}" if port else host
+    except ValueError as err:
+        raise vol.Invalid(str(err)) from err
+
+
+SCAN_INTERVAL_SCHEMA = vol.All(vol.Coerce(int), vol.Range(min=5, max=3600))
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
@@ -34,24 +60,19 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Optional(CONF_MODEL, default=DEFAULT_MODEL): str,
         vol.Optional(CONF_USERNAME, default=DEFAULT_USERNAME): str,
         vol.Optional(CONF_PASSWORD, default=DEFAULT_PASSWORD): str,
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): SCAN_INTERVAL_SCHEMA,
     }
 )
 
 
 def _normalise(data: dict[str, Any]) -> dict[str, Any]:
     """Accept a bare IP or a full URL and keep the stored values tidy."""
-    host = str(data[CONF_HOST]).strip()
-    if host.startswith(("http://", "https://")):
-        host = host.split("://", 1)[1].rstrip("/")
-    # Tolerate a host:port pair typed into the address field.
-    if host.count(":") == 1:
-        host = host.split(":", 1)[0]
+    host = normalise_host(str(data[CONF_HOST]))
 
     out = dict(data)
     out[CONF_HOST] = host
-    out[CONF_NAME] = (data.get(CONF_NAME) or DEFAULT_NAME).strip()
-    out[CONF_MODEL] = (data.get(CONF_MODEL) or DEFAULT_MODEL).strip()
+    out[CONF_NAME] = (data.get(CONF_NAME) or "").strip() or DEFAULT_NAME
+    out[CONF_MODEL] = (data.get(CONF_MODEL) or "").strip() or DEFAULT_MODEL
     out[CONF_USERNAME] = data.get(CONF_USERNAME) or DEFAULT_USERNAME
     out[CONF_PASSWORD] = data.get(CONF_PASSWORD) or DEFAULT_PASSWORD
     return out
@@ -61,6 +82,12 @@ class HiveosMinerConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle adding a miner by IP address."""
 
     VERSION = 1
+
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        from .options_flow import HiveosMinerOptionsFlow
+
+        return HiveosMinerOptionsFlow()
 
     async def _async_try_connect(self, data: dict[str, Any]) -> str | None:
         """Probe the miner; return an error key or None on success."""
@@ -86,7 +113,13 @@ class HiveosMinerConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            data = _normalise(user_input)
+            try:
+                data = _normalise(user_input)
+            except vol.Invalid:
+                return self.async_show_form(
+                    step_id="user", data_schema=STEP_USER_SCHEMA,
+                    errors={CONF_HOST: "invalid_host"},
+                )
             await self.async_set_unique_id(data[CONF_HOST])
             self._abort_if_unique_id_configured()
             error = await self._async_try_connect(data)

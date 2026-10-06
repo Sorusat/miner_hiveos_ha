@@ -14,8 +14,6 @@ from .const import (
     DOMAIN,
     STATE_MINING,
     STATE_STARTING,
-    STATE_STOPPED,
-    STATE_SUSPENDED,
 )
 from .coordinator import HiveosMinerCoordinator
 
@@ -61,21 +59,7 @@ class HiveosMinerSwitch(CoordinatorEntity[HiveosMinerCoordinator], SwitchEntity)
         return self.coordinator.last_update_success
 
     async def async_turn_on(self, **kwargs) -> None:
-        data = self.coordinator.data or {}
-        state = data.get("state")
-        if state == STATE_SUSPENDED:
-            # Resume keeps the running configuration; a full start is needed
-            # when the miner process is not running at all.
-            await self.coordinator.async_resume()
-        elif state == STATE_STOPPED:
-            await self.coordinator.async_start_mining()
-        elif state == STATE_STARTING:
-            # Already booting from an earlier command: do not stack another one.
-            return
-        else:
-            await self.coordinator.async_start_mining()
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_set_mining(True)
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.coordinator.async_stop_mining()
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_set_mining(False)

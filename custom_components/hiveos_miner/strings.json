@@ -23,6 +23,7 @@
       }
     },
     "error": {
+      "invalid_host": "Enter an IP or HTTP hostname with an optional port, without a path or credentials.",
       "cannot_connect": "Could not reach the miner. Check the IP, username and password.",
       "unknown": "Unexpected error"
     },
@@ -47,6 +48,8 @@
       }
     },
     "error": {
+      "already_configured": "This address is already assigned to another miner.",
+      "invalid_host": "Enter an IP or HTTP hostname with an optional port, without a path or credentials.",
       "cannot_connect": "Could not reach the miner. Check the IP, username and password."
     }
   },
