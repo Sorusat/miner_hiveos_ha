@@ -26,8 +26,8 @@ from .const import (
     STATE_SUSPENDED,
 )
 
-# At or above this 5-second hashrate (GH/s) the miner is actively mining.
-MINING_THRESHOLD_GHS = 1.0
+# Any positive 5-second hashrate means that mining is currently running.
+MINING_THRESHOLD_GHS = 0.0
 
 # Local bmminer TCP API, used only to tell suspended from stopped.
 LOCAL_API_PORT = 4028
@@ -39,6 +39,14 @@ REQUEST_TIMEOUT = 10
 
 class HiveosMinerError(Exception):
     """Raised when the miner cannot be reached or refuses a command."""
+
+
+class HiveosMinerAuthError(HiveosMinerError):
+    """Raised when the miner rejects the configured credentials."""
+
+
+class HiveosMinerConnectionError(HiveosMinerError):
+    """Raised when the miner does not answer over the network."""
 
 
 def _to_float(value: Any) -> float | None:
@@ -132,7 +140,7 @@ class HiveosMinerApi:
         try:
             async with session.get(self._url(endpoint)) as response:
                 if response.status in (401, 403):
-                    raise HiveosMinerError(
+                    raise HiveosMinerAuthError(
                         f"{self._host}: digest auth rejected for {endpoint}"
                     )
                 if response.status == 404:
@@ -143,9 +151,11 @@ class HiveosMinerApi:
                     )
                 body = await response.text()
         except asyncio.TimeoutError as err:
-            raise HiveosMinerError(f"{self._host}: timeout on {endpoint}") from err
+            raise HiveosMinerConnectionError(
+                f"{self._host}: timeout on {endpoint}"
+            ) from err
         except aiohttp.ClientError as err:
-            raise HiveosMinerError(f"{self._host}: {err}") from err
+            raise HiveosMinerConnectionError(f"{self._host}: {err}") from err
 
         try:
             return json.loads(body)
@@ -158,15 +168,21 @@ class HiveosMinerApi:
         session = await self._ensure_session()
         try:
             async with session.get(self._url(endpoint)) as response:
+                if response.status in (401, 403):
+                    raise HiveosMinerAuthError(
+                        f"{self._host}: digest auth rejected for {endpoint}"
+                    )
                 if response.status >= 400:
                     raise HiveosMinerError(
                         f"{self._host}: HTTP {response.status} on {endpoint}"
                     )
                 await response.read()
         except asyncio.TimeoutError as err:
-            raise HiveosMinerError(f"{self._host}: timeout on {endpoint}") from err
+            raise HiveosMinerConnectionError(
+                f"{self._host}: timeout on {endpoint}"
+            ) from err
         except aiohttp.ClientError as err:
-            raise HiveosMinerError(f"{self._host}: {err}") from err
+            raise HiveosMinerConnectionError(f"{self._host}: {err}") from err
 
     async def async_start(self) -> None:
         await self.async_command(ENDPOINT_START)
@@ -219,14 +235,17 @@ def derive_state(
     distinguishes those, and it can stay silent for the first few polls, so
     the issued command is tracked as a fallback.
     """
+    # The current status is authoritative. The log may contain an older
+    # SUSPENDED/Starting line in its tail, while a positive hashrate proves
+    # that the miner is working now.
+    if ghs5s is not None and ghs5s > MINING_THRESHOLD_GHS:
+        return STATE_MINING
     if log:
         tail = log[-2000:]
         if "SUSPENDED" in tail:
             return STATE_SUSPENDED
         if "Starting" in tail:
             return STATE_STARTING
-    if ghs5s and ghs5s >= MINING_THRESHOLD_GHS:
-        return STATE_MINING
     return STATE_STARTING if pending_start else STATE_STOPPED
 
 

@@ -54,27 +54,13 @@
     "sensor": {
       "state": { "name": "Состояние" },
       "hashrate": { "name": "Хэшрейт" },
-      "hashrate_avg": { "name": "Средний хэшрейт" },
       "temp_max": { "name": "Температура" },
       "power": { "name": "Потребление" },
       "uptime": { "name": "Время работы" },
-      "accepted_shares": { "name": "Принятые шары" },
-      "rejected_shares": { "name": "Отклонённые шары" },
-      "boards_alive": { "name": "Платы" },
-      "pools": { "name": "Пулы" },
-      "pools_alive": { "name": "Живых пулов" },
-      "pools_total": { "name": "Всего пулов" }
+      "pools_alive": { "name": "Живых пулов" }
     },
     "switch": {
-      "mining": { "name": "Майнинг" },
-      "pause": { "name": "Пауза" }
-    },
-    "binary_sensor": {
-      "connectivity": { "name": "Доступен" },
-      "is_mining": { "name": "Майнит" },
-      "is_powered": { "name": "Под питанием" },
-      "pools_ok": { "name": "Есть живые пулы" },
-      "pools_alive_now": { "name": "Пулы живы" }
+      "mining": { "name": "Майнинг" }
     }
   }
 }

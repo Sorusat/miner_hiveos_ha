@@ -54,27 +54,13 @@
     "sensor": {
       "state": { "name": "State" },
       "hashrate": { "name": "Hashrate" },
-      "hashrate_avg": { "name": "Average hashrate" },
       "temp_max": { "name": "Temperature" },
       "power": { "name": "Power draw" },
       "uptime": { "name": "Uptime" },
-      "accepted_shares": { "name": "Accepted shares" },
-      "rejected_shares": { "name": "Rejected shares" },
-      "boards_alive": { "name": "Boards" },
-      "pools": { "name": "Pools" },
-      "pools_alive": { "name": "Pools alive" },
-      "pools_total": { "name": "Pools total" }
+      "pools_alive": { "name": "Pools alive" }
     },
     "switch": {
-      "mining": { "name": "Mining" },
-      "pause": { "name": "Pause" }
-    },
-    "binary_sensor": {
-      "connectivity": { "name": "Reachable" },
-      "is_mining": { "name": "Mining" },
-      "is_powered": { "name": "Powered" },
-      "pools_ok": { "name": "Has live pools" },
-      "pools_alive_now": { "name": "Pools alive" }
+      "mining": { "name": "Mining" }
     }
   }
 }

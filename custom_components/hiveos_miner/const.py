@@ -31,9 +31,9 @@ STATE_STOPPED = "stopped"
 STATE_UNKNOWN = "unknown"
 
 STATE_LABELS = {
-    STATE_MINING: "Майнинг",
+    STATE_MINING: "Работает",
     STATE_STARTING: "Запуск...",
     STATE_SUSPENDED: "Приостановлен",
-    STATE_STOPPED: "Остановлен",
+    STATE_STOPPED: "Выключен",
     STATE_UNKNOWN: "Неизвестно",
 }

@@ -7,10 +7,17 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import HiveosMinerApi, HiveosMinerError, parse_miner_status
+from .api import (
+    HiveosMinerApi,
+    HiveosMinerAuthError,
+    HiveosMinerConnectionError,
+    HiveosMinerError,
+    parse_miner_status,
+)
 from .const import (
     CONF_HOST,
     CONF_MODEL,
@@ -97,11 +104,18 @@ class HiveosMinerCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         try:
             raw = await self.api.async_get(ENDPOINT_STATUS)
-        except HiveosMinerError as err:
-            # A miner that is powered off answers nothing at all. Keep the last
-            # good payload so the dashboard holds its values, and let the
-            # entities report unavailable through last_update_success.
+        except HiveosMinerAuthError as err:
+            self._clear_pending_start()
+            raise ConfigEntryAuthFailed(str(err)) from err
+        except HiveosMinerConnectionError:
+            # An unresponsive miner is intentionally represented as a valid
+            # offline payload. This keeps the status sensor actionable as
+            # "Выключен" and lets the start switch remain available. Numeric
+            # entities get None values and therefore display as unavailable.
             self.available = False
+            self._clear_pending_start()
+            return parse_miner_status({"summary": {}, "devs": [], "pools": []})
+        except HiveosMinerError as err:
             self._clear_pending_start()
             raise UpdateFailed(str(err)) from err
 

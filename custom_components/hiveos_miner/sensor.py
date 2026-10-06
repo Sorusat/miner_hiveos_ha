@@ -1,8 +1,8 @@
-"""Sensors: state, hashrate, temperature, power, uptime, shares."""
+"""Sensors: state, hashrate, live pools, temperature, power and uptime."""
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -17,7 +17,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_HOST, CONF_NAME, DOMAIN, STATE_LABELS
+from .const import CONF_NAME, DOMAIN, STATE_LABELS
 from .coordinator import HiveosMinerCoordinator
 
 SENSORS: tuple[SensorEntityDescription, ...] = (
@@ -32,14 +32,6 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement="GH/s",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-    ),
-    SensorEntityDescription(
-        key="hashrate_avg",
-        translation_key="hashrate_avg",
-        native_unit_of_measurement="GH/s",
-        state_class=SensorStateClass.MEASUREMENT,
-        suggested_display_precision=1,
-        entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
         key="temp_max",
@@ -63,41 +55,10 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         icon="mdi:timer-outline",
     ),
     SensorEntityDescription(
-        key="accepted",
-        translation_key="accepted_shares",
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        icon="mdi:check-circle-outline",
-    ),
-    SensorEntityDescription(
-        key="rejected",
-        translation_key="rejected_shares",
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        icon="mdi:close-circle-outline",
-    ),
-    SensorEntityDescription(
-        key="boards_alive",
-        translation_key="boards_alive",
-        state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:memory",
-    ),
-    SensorEntityDescription(
-        key="pools",
-        translation_key="pools",
-        icon="mdi:lan",
-        entity_registry_enabled_default=False,
-    ),
-    SensorEntityDescription(
         key="pools_alive",
         translation_key="pools_alive",
         state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:lan-connect",
-    ),
-    SensorEntityDescription(
-        key="pools_total",
-        translation_key="pools_total",
-        state_class=SensorStateClass.MEASUREMENT,
-        icon="mdi:lan-pending",
-        entity_registry_enabled_default=False,
     ),
 )
 
@@ -132,10 +93,6 @@ def _sensor_value(data: dict[str, Any], key: str) -> Any:
         return data.get("state", "unknown")
     if key == "uptime_seconds":
         return _format_uptime(data.get("uptime_seconds"))
-    if key == "pools":
-        return ", ".join(
-            f"{p['status']}: {p['url']}" for p in data.get("pools", []) if p.get("url")
-        ) or "нет пулов"
     return data.get(key)
 
 

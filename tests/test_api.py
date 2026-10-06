@@ -129,7 +129,13 @@ async def main() -> int:
     for label, data, log, latch, want in [
         ("resume, log silent", ZEROED_STATUS, "", True, "starting"),
         ("log says Starting", ZEROED_STATUS, "Starting...", False, "starting"),
-        ("log says SUSPENDED", FULL_STATUS, "INFO SUSPENDED", False, "suspended"),
+        (
+            "stale SUSPENDED log does not override active hashrate",
+            FULL_STATUS,
+            "INFO SUSPENDED",
+            False,
+            "mining",
+        ),
         ("mining", FULL_STATUS, "", False, "mining"),
         ("powered off", ZEROED_STATUS, "", False, "stopped"),
     ]:
